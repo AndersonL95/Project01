@@ -1,6 +1,7 @@
 const Users = require('../model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const user = require('../model/user');
 require('dotenv').config();
 
 
@@ -64,6 +65,32 @@ const useController ={
             res.clearCookie('refreshToken', {path: '/user/refresh_token'});
                 return res.json({message: "Logout"});
         } catch(err) {
+            return res.status(500).json({message: err.message});
+        }
+    },
+    refreshToken: async (req, res) => {
+       try {
+        const ref_token = req.cookies.refreshToken;
+        if(!ref_token) return res.status(400).json({message: "Efetue o login ou registre-se."});
+
+        jwt.verify(ref_token, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+            if(err) return res.status(400).json({message:"Efetue o login ou registre-se."});
+
+            const projectToken = createAccessToken({id: user.id})
+
+            res.json({projectToken});
+        })
+       } catch (err) {
+        return res.status(500).json({message: err.message});
+       }
+    },
+    getUser: async (req, res) => {
+        try {
+            const user = await Users.findById(req.user.id).select('-password');
+            if(!user) return res.status(400).json({message: "Usuario não existe!"});
+
+            res.json(user)
+        } catch (err) {
             return res.status(500).json({message: err.message});
         }
     }
