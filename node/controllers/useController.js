@@ -9,6 +9,7 @@ const useController ={
     register: async (req, res) => {
         try {
             const {name, email, password} = req.body;
+            const {picture} = req.file.path
 
             const user = await Users.findOne({email})
             if(user) return res.status(400).json({message: "Esse email já existe."})
@@ -18,7 +19,7 @@ const useController ={
 
             const passwordHash = await bcrypt.hash(password, 10);
             const newUser = new Users({
-                name, email, password: passwordHash
+                name: req.body.name, email: req.body.email, picture: req.file.path, password: passwordHash
             });
             await newUser.save();
 
@@ -68,6 +69,38 @@ const useController ={
             return res.status(500).json({message: err.message});
         }
     },
+    UpdateUser: async (req, res) => {
+        try {
+            const {name, email, password} = req.body;
+            const {picture} = req.file.filename
+
+            const user = await Users.findByIdAndUpdate({email})
+            if(user) return res.status(400).json({message: "Esse email já existe."})
+            
+            if(password.length < 6)
+            return res.status(400).json({message: "Senha tem que possuir mais do que 6 caracteres."})
+
+            const passwordHash = await bcrypt.hash(password, 10);
+            const newUser = new Users({
+                name, email, picture, password: passwordHash
+            });
+            await newUser.save();
+
+            const projectToken = createAccessToken({id: newUser._id});
+            const refreshToken = createRefreshToken({id: newUser._id});
+
+            res.cookie('refreshToken', refreshToken,{
+                httpOnly: true,
+                path: '/user/refresh_token',
+                maxAge: 7*24*60*1000
+            })
+
+            res.json({projectToken})
+
+        } catch (err) {
+            return res.status(500).json({message: err.message});
+        }
+    },
     refreshToken: async (req, res) => {
        try {
         const ref_token = req.cookies.refreshToken;
@@ -93,7 +126,8 @@ const useController ={
         } catch (err) {
             return res.status(500).json({message: err.message});
         }
-    }
+    },
+    
 }
 const createAccessToken = (user) => {
     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '11m'})

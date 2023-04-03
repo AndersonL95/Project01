@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     cargo: {
         type: Number,
         default: 0
-    }
+    },
+    picture: {
+        type: String,
+        required: true
+   }
 })
 module.exports = mongoose.model('Users', userSchema);
