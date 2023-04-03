@@ -9,7 +9,7 @@ router.get('/logout', useController.logout);
 
 router.get('/refresh_token', useController.refreshToken);
 router.get('/infor',auth, useController.getUser)
-router.get('/edit',upload.single("pic"), useController.UpdateUser);
+router.put('/edit/:id',upload.single("pic"), useController.UpdateUser);
 
 
 module.exports = router

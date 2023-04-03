@@ -71,31 +71,19 @@ const useController ={
     },
     UpdateUser: async (req, res) => {
         try {
-            const {name, email, password} = req.body;
-            const {picture} = req.file.filename
-
-            const user = await Users.findByIdAndUpdate({email})
-            if(user) return res.status(400).json({message: "Esse email já existe."})
+            const {_id, name, email} = req.body;
+            const {picture} = req.file.path
             
-            if(password.length < 6)
-            return res.status(400).json({message: "Senha tem que possuir mais do que 6 caracteres."})
-
-            const passwordHash = await bcrypt.hash(password, 10);
-            const newUser = new Users({
-                name, email, picture, password: passwordHash
+            await  Users.findByIdAndUpdate({_id: req.params.id},{
+                _id, name, email, picture: req.file.path
             });
-            await newUser.save();
-
-            const projectToken = createAccessToken({id: newUser._id});
-            const refreshToken = createRefreshToken({id: newUser._id});
-
-            res.cookie('refreshToken', refreshToken,{
-                httpOnly: true,
-                path: '/user/refresh_token',
-                maxAge: 7*24*60*1000
+           
+            
+            const processToken = jwt.sign({user}, process.env.ACCESS_TOKEN_SECRET,{
+                expiresIn: '7d'
             })
 
-            res.json({projectToken})
+            res.json({processToken, message: "Usuario foi alterado."})
 
         } catch (err) {
             return res.status(500).json({message: err.message});
