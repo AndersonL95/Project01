@@ -2,6 +2,7 @@ const Users = require('../model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const user = require('../model/user');
+const {body, validationResult} = require('express-validator')
 require('dotenv').config();
 
 
@@ -89,6 +90,39 @@ const useController ={
             return res.status(500).json({message: err.message});
         }
     },
+    updatePasswordValidation:  [
+        body('atual').not().isEmpty().trim().withMessage('Digite a senha atual.'),
+        body('newPassword').isLength({min: 6}).withMessage('A senha precisa ter 6 digitos ou mais.')
+    ],
+    updatePassword: async (req, res) => {
+        const { atual, newPassword, _id } = req.body;
+        const errors = validationResult(req);
+        if(!errors.isEmpty()) {
+            return res.status(400).json({errors: errors.array()});
+        }else {
+            const user = await Users.findOne({_id: req.params.id});
+            if(user) {
+                const matched = await bcrypt.compare(atual, user.password);
+                if(!matched) {
+                    return res.status(400).json({errors: [{message: "Digite a senha atual"}]})
+                }else {
+                    try {
+                        const salt = await bcrypt.genSalt(10);
+                        const hash = await bcrypt.hash(newPassword, salt);
+                        const newUser = await Users.findOneAndUpdate(
+                            {_id: user},
+                            { password: hash},
+                            { new: true}
+                        );
+                        return res.status(200).json({message: "Senha alterada com sucesso."})
+                    }catch (err) {
+                        return res.status(500).json({message: err.message});
+                    }
+                }
+            } 
+        }
+    },
+
     refreshToken: async (req, res) => {
        try {
         const ref_token = req.cookies.refreshToken;
