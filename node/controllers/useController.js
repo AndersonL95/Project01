@@ -2,9 +2,21 @@ const Users = require('../model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const user = require('../model/user');
-const {body, validationResult} = require('express-validator')
+const PasswordReset = require('../model/PasswordReset');
+const {body, validationResult} = require('express-validator');
+const {v4: uuidv4} = require('uuid');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+let transporter = nodemailer.createTransport({
+    service: 'outlook',
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.AUTH_EMAIL,
+        pass: process.env.AUTH_PASS,
+    },
+})
 
 const useController ={
     register: async (req, res) => {
@@ -122,6 +134,28 @@ const useController ={
             } 
         }
     },
+    passwordReset: async (req, res) => {
+        try {
+            const {email, redirectUrl} = req.body;
+            Users.find({email})
+                .then((data) => {
+                    if(data.length) {
+                        if(!data[0]){
+                            res.status(400).json({message: "O e-mail ainda não foi verificado. Verifique sua caixa de entrada."})
+                        }else {
+                            sendResetEmail(data[0], redirectUrl, res);
+                        }
+                    }else {
+                        res.status(400).json({message: "Não existe nenhuma conta com o e-mail fornecido."})
+                    }
+                })
+                .catch(error => {
+                    res.status(400).json({message: "Ocorreu um erro ao verificar o usuario existente."})
+                })
+        } catch(err) {
+            return res.status(500).json({message: err.message});
+        }
+    },
 
     refreshToken: async (req, res) => {
        try {
@@ -149,12 +183,62 @@ const useController ={
             return res.status(500).json({message: err.message});
         }
     },
+
     
 }
+const sendResetEmail = ({id, email}, redirectUrl, res) =>{
+    const resetString = uuidv4 + id;
+
+    PasswordReset
+        .deleteMany({_id: id})
+        .then(result => {
+
+            const mailOptions = {
+                from: process.env.AUTH_EMAIL,
+                to: email,
+                subject: "Esqueci a minha senha.",
+                html:`<p>Soubemos que você perdeu sua senha.</><p>não se preocupe, nós temos o link para você poder resetá-la.</p>
+                <b>expira em 60 minutos</b>.</p><p> Pressione <a href=${redirectUrl + "/" + id + "/" + resetString}>aqui</a>
+                para continuar.</p>`,
+            }
+            const salt = 10;
+            bcrypt
+                .hash(resetString, salt)
+                .then(hashedResetString => {
+                    const newPasswordReset = new PasswordReset({
+                        _id: id,
+                        resetString: hashedResetString,
+                        createAt: Date.now(),
+                        expiresAt: Date.now() + 3600000
+                    });
+                    newPasswordReset
+                        .save()
+                        .then(() =>{
+                            transporter.sendMail(mailOptions)
+                                .then(() =>{
+                                    res.status(200).json({message: "E-mail de redefinição de senha enviado."})
+                                })
+                                .catch(error =>{
+                                    console.log(error);
+                                    res.status(400).json({message: "Redefinição de senha falida."})
+                                })
+                        })
+                        .catch(error =>{
+                            res.status(400).json({message: "Não foi possivel salvar os dados de redefinição de senha."})
+                        })
+                })
+                .catch(error =>{
+                    res.status(400).json({message: "Um erro ocorreu enquanto a senha era resetada."});
+                })
+        })
+        .catch(error =>{
+            res.status(400).json({message: "A limpeza dos registros de redefinição de senhas existentes falhou."});
+        })
+}
 const createAccessToken = (user) => {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '11m'})
+    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '11m'});
 }
 const createRefreshToken = (user) => {
-    return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, {expiresIn: '7d'})
+    return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, {expiresIn: '7d'});
 }
 module.exports = useController
