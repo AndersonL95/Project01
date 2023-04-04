@@ -134,7 +134,7 @@ const useController ={
             } 
         }
     },
-    passwordReset: async (req, res) => {
+    requestPasswordReset: async (req, res) => {
         try {
             const {email, redirectUrl} = req.body;
             Users.find({email})
@@ -150,11 +150,77 @@ const useController ={
                     }
                 })
                 .catch(error => {
+                    console.log(error);
                     res.status(400).json({message: "Ocorreu um erro ao verificar o usuario existente."})
                 })
         } catch(err) {
             return res.status(500).json({message: err.message});
         }
+    },
+    PasswordReset: async (req, res) => {
+        const {_id, resetString, newPassword} = req.body;
+
+        PasswordReset.find({_id})
+            .then(result =>{
+                if(result.length > 0){
+                    const {expiresAt} = result[0];
+                    const hashedResetString = result[0].resetString;
+
+                    if(expiresAt < Date.now()){
+                        PasswordReset
+                        .deleteOne({_id})
+                        .then(() =>{
+                            res.status().json({message: "Link de redefinição de senha expirou."})
+                        })
+                        .catch(error => {
+                            console.log(error)
+                            res.status(400).json({message: "Falha na limpeza do registro de redefinição de senha."})
+                        })
+                    }else {
+                        bcrypt.compare(resetString, hashedResetString)
+                            .then((result) =>{
+                                if(result){
+                                    const salt = 10;
+                                    bcrypt.hash(newPassword, salt)
+                                        .then(hashedNewPassword =>{
+                                            Users
+                                            .updateOne({id: _id},{password: hashedNewPassword})
+                                            .then(() =>{
+                                                PasswordReset.deleteOne({_id})
+                                                    .then(() =>{
+                                                        res.status(200).json({message: "Update de senha foi um sucesso."})
+                                                    })
+                                                    .catch(error =>{
+                                                        console.log(error);
+                                                        res.status(400).json({message: "Um erro ocorreu enquanto finalizava a redefinição de senha."})
+                                                    })
+                                            })
+                                            .catch(error =>{
+                                                console.log(error);
+                                                res.status(400).json({message: "Update de senha falido."})
+                                            })
+                                        })
+                                        .catch(error =>{
+                                            console.log(error);
+                                            res.status(400).json({message: "Ocorreu um erro durante o hash da nova senha."})
+                                        })
+                                }else {
+                                    res.status(400).json({message: "Detalhes de redefinição de senha passados são invalidos."})
+                                 }
+                            })
+                            .catch(error =>{
+                                console.log(error);
+                                res.status(400).json({message: "A comparação das strings de redefinição de senha falhou."})
+                            })
+                    }
+                }else{
+                    res.status(400).json({message: "Requisição de redefinição de senha não encontrada."})
+                }
+            })
+            .catch(error => {
+                console.log(error);
+                res.status(400).json({message: "A verificação de registro de redefinição de senha existente falhou."})
+            })
     },
 
     refreshToken: async (req, res) => {
@@ -187,7 +253,7 @@ const useController ={
     
 }
 const sendResetEmail = ({id, email}, redirectUrl, res) =>{
-    const resetString = uuidv4 + id;
+    const resetString = uuidv4() + id;
 
     PasswordReset
         .deleteMany({_id: id})
@@ -197,8 +263,8 @@ const sendResetEmail = ({id, email}, redirectUrl, res) =>{
                 from: process.env.AUTH_EMAIL,
                 to: email,
                 subject: "Esqueci a minha senha.",
-                html:`<p>Soubemos que você perdeu sua senha.</><p>não se preocupe, nós temos o link para você poder resetá-la.</p>
-                <b>expira em 60 minutos</b>.</p><p> Pressione <a href=${redirectUrl + "/" + id + "/" + resetString}>aqui</a>
+                html:`<p>Soubemos que você perdeu sua senha.</p> <p>Não se preocupe, nós temos o link para você poder resetá-la.</p>
+                <b>O link expira em 60 minutos</b>.</p><p>Pressione <a href=${redirectUrl + "/" + id + "/" + resetString}>aqui</a>
                 para continuar.</p>`,
             }
             const salt = 10;
@@ -224,17 +290,21 @@ const sendResetEmail = ({id, email}, redirectUrl, res) =>{
                                 })
                         })
                         .catch(error =>{
+                            console.log(error);
                             res.status(400).json({message: "Não foi possivel salvar os dados de redefinição de senha."})
                         })
                 })
                 .catch(error =>{
+                    console.log(error);
                     res.status(400).json({message: "Um erro ocorreu enquanto a senha era resetada."});
                 })
         })
         .catch(error =>{
+            console.log(error);
             res.status(400).json({message: "A limpeza dos registros de redefinição de senhas existentes falhou."});
         })
 }
+
 const createAccessToken = (user) => {
     return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '11m'});
 }
