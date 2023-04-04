@@ -11,7 +11,7 @@ router.get('/refresh_token', useController.refreshToken);
 router.post('/registro', upload.single("pic"), useController.register);
 router.get('/infor',auth, useController.getUser)
 router.put('/edit/:id',upload.single("pic"), auth, useController.UpdateUser);
-router.put('/editPass/:id', updatePasswordValidation, updatePassword)
+router.put('/editPass/:id',auth, updatePasswordValidation, updatePassword)
 
 
 
