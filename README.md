@@ -32,7 +32,7 @@
 *   name
 *   email
 *   password
-*   pic = foto do usuario- redefinição de senha - OBS: funcionando, porem falta criar um email para enviar para qualquer conta.
+*   pic = foto do usuario
 
 # PUT /user/editPass/id --AUTHORIZATION
 *   atual
