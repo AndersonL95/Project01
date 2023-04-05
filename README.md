@@ -9,7 +9,7 @@
 # UPADATE_USER DATA -OK
 # UPLOAD USER_PICTURE -OK
 # UPDATE PASSWORD - OK
-# REQUEST PASSWORD RESET VIA EMAIL- OK
+# REQUEST PASSWORD RESET VIA EMAIL- OK - redefinição de senha - OBS: funcionando, porem falta criar um email para enviar para qualquer conta.
 # RESET PASSWORD - OK
 
 # --ROTAS--
@@ -48,3 +48,12 @@
     # newPassword
 
 * GET user/refresh_token
+
+# -- .env file --
+
+# PORT = porta do servidor
+# MONGODB_URL = conexão com o mongoDB
+# AUTH_EMAIL = email existente para autenticação 
+# AUTH_PASS = senha existente para autenticação 
+# ACCESS_TOKEN_SECRET = gerar token
+# REFRESH_TOKEN_SECRET = gerar refreshToken
