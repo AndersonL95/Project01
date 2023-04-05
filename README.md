@@ -9,3 +9,42 @@
 # UPADATE_USER DATA -OK
 # UPLOAD USER_PICTURE -OK
 # UPDATE PASSWORD - OK
+# REQUEST PASSWORD RESET VIA EMAIL- OK
+# RESET PASSWORD - OK
+
+# --ROTAS--
+
+* POST /user/registro
+    # name
+    # email
+    # password
+    # pic
+
+* GET /user/infor -- AUTHORIZATION
+
+* POST /user/login
+    # email
+    # password
+
+* GET /user/logout
+
+* PUT /user/edit/id + pic --AUTHORIZATION
+    # name
+    # email
+    # password
+    # pic = foto do usuario
+
+* PUT /user/editPass/id --AUTHORIZATION
+    # atual
+    # newPassword
+
+* POST /user/requestPassReset
+    # email = email cadastrado
+    # redirectUrl = ex: google.com
+
+* POST /user/resetPass
+    # _id = id do usuario
+    # resetString = ex: rota no email de redefinição
+    # newPassword
+
+* GET user/refresh_token
