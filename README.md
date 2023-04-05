@@ -32,7 +32,7 @@
 *   name
 *   email
 *   password
-*   pic = foto do usuario
+*   pic = foto do usuario- redefinição de senha - OBS: funcionando, porem falta criar um email para enviar para qualquer conta.
 
 # PUT /user/editPass/id --AUTHORIZATION
 *   atual
@@ -51,9 +51,9 @@
 
 # -- .env file --
 
-# PORT = porta do servidor
-# MONGODB_URL = conexão com o mongoDB
-# AUTH_EMAIL = email existente para autenticação 
-# AUTH_PASS = senha existente para autenticação 
-# ACCESS_TOKEN_SECRET = gerar token
-# REFRESH_TOKEN_SECRET = gerar refreshToken
+* PORT = porta do servidor
+* MONGODB_URL = conexão com o mongoDB
+* AUTH_EMAIL = email existente para autenticação 
+* AUTH_PASS = senha existente para autenticação 
+* ACCESS_TOKEN_SECRET = gerar token
+* REFRESH_TOKEN_SECRET = gerar refreshToken
