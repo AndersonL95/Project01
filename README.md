@@ -14,40 +14,40 @@
 
 # --ROTAS--
 
-* POST /user/registro
-    # name
-    # email
-    # password
-    # pic
+# POST /user/registro
+*   name
+*   email
+*   password
+*   pic
 
-* GET /user/infor -- AUTHORIZATION
+# GET /user/infor -- AUTHORIZATION
 
-* POST /user/login
-    # email
-    # password
+# POST /user/login
+*   email
+*   password
 
-* GET /user/logout
+# GET /user/logout
 
-* PUT /user/edit/id + pic --AUTHORIZATION
-    # name
-    # email
-    # password
-    # pic = foto do usuario
+# PUT /user/edit/id + pic --AUTHORIZATION
+*   name
+*   email
+*   password
+*   pic = foto do usuario
 
-* PUT /user/editPass/id --AUTHORIZATION
-    # atual
-    # newPassword
+# PUT /user/editPass/id --AUTHORIZATION
+*   atual
+*   newPassword
 
-* POST /user/requestPassReset
-    # email = email cadastrado
-    # redirectUrl = ex: google.com
+# POST /user/requestPassReset
+*   email = email cadastrado
+*   redirectUrl = ex: google.com
 
-* POST /user/resetPass
-    # _id = id do usuario
-    # resetString = ex: rota no email de redefinição
-    # newPassword
+# POST /user/resetPass
+*   _id = id do usuario
+*   resetString = ex: rota no email de redefinição
+*   newPassword
 
-* GET user/refresh_token
+# GET user/refresh_token
 
 # -- .env file --
 
