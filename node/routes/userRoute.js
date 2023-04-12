@@ -14,6 +14,8 @@ router.put('/edit/:id',upload.single("pic"), auth, useController.UpdateUser);
 router.put('/editPass/:id',auth, updatePasswordValidation, updatePassword);
 router.post('/requestPassReset', useController.requestPasswordReset);
 router.post('/resetPass', useController.PasswordReset);
+router.get('/verify/:_id/:uniqueString',useController.userVerify)
+router.get('/verified', useController.userVerified,);
 
 
 

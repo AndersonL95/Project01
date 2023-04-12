@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const user = require('../model/user');
 const PasswordReset = require('../model/PasswordReset');
+const UserVerification = require('../model/userVerification');
 const {body, validationResult} = require('express-validator');
 const {v4: uuidv4} = require('uuid');
 const nodemailer = require('nodemailer');
@@ -17,11 +18,66 @@ let transporter = nodemailer.createTransport({
         pass: process.env.AUTH_PASS,
     },
 })
+transporter.verify((error, success) =>{
+    if(error) {
+        console.log(error);
+    }else {
+        console.log("Pronto para mensagens.");
+        console.log(success);
+    }
+})
+const sendVerificationEmail = ({id, email}, res) => {
+    const url = "http://localhost:5000/";
+    const uniqueString = uuidv4() + id;
+    
+    const emailOptions = {
+        from: process.env.AUTH_EMAIL,
+        to: email,
+        subject: "Verifique o seu email!",
+        html: `<p>Verifique o seu email para completar o login na sua conta.</p>
+            <p><b>O link expira em 6 horas.</b></p>
+            <p>Pressione <a href=${url + "user/verify/" + id + "/" + uniqueString}>Aqui</a> para continuar.</p>
+        `
+    };
+    const salt = 10;
+    bcrypt.hash(uniqueString, salt)
+        .then((hashedUniqueString) => {
+            const newVerification = UserVerification({
+                _id: id,
+                uniqueString: hashedUniqueString,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 2160000,
+            });
+            newVerification.save()
+                .then(() => {
+                    transporter.sendMail(emailOptions)
+                        .then(() => {
+                            res.status(200).json({message: "Email de verificação foi enviado."})
+
+                        })
+                        .catch((error) => {
+                            console.log(error);
+                            res.status(400).json({message: "Verificação de e-mail falida."})
+
+                        })
+                })
+                .catch((error) => {
+                    console.log(error);
+                    res.status(400).json({message: "Erro ao salvar verificação de e-mail."})
+
+                })
+        })
+        .catch((error) => {
+            console.log(error)
+            res.status(400).json({message: "Um erro ocorreu quando executado o hash do e-mail."})
+        })
+};
+const path = require('path');
 
 const useController ={
     register: async (req, res) => {
         try {
-            const {name, email, password} = req.body;
+            const {name, email, password, verified} = req.body;
             const {picture} = req.file.path
 
             const user = await Users.findOne({email})
@@ -32,9 +88,12 @@ const useController ={
 
             const passwordHash = await bcrypt.hash(password, 10);
             const newUser = new Users({
-                name: req.body.name, email: req.body.email, picture: req.file.path, password: passwordHash
+                name: req.body.name, email: req.body.email, picture: req.file.path,verified: false, password: passwordHash
             });
-            await newUser.save();
+            await newUser.save()
+                .then((result) =>{
+                    sendVerificationEmail(result, res);
+                })
 
             const projectToken = createAccessToken({id: newUser._id});
             const refreshToken = createRefreshToken({id: newUser._id});
@@ -45,32 +104,118 @@ const useController ={
                 maxAge: 7*24*60*1000
             })
 
-            res.json({projectToken})
+            //res.json({projectToken})
 
         } catch (err) {
             return res.status(500).json({message: err.message});
         }
     },
+    userVerify : async (req, res) =>{
+        let {_id, uniqueString} = req.params;
+
+        UserVerification
+        .find({_id})
+        .then((result) => {
+            if(result.length > 0) {
+                const {expiresAt} = result[0];
+                const hashedUniqueString = result[0].uniqueString;
+
+                if(expiresAt < Date.now()) {
+                    UserVerification.deleteOne({_id})
+                        .then(result =>{
+                            Users.deleteOne({id:_id})
+                                .then(() => {
+                                    let message = "Link expirado, por favor registre-se novamente.";
+                                    res.redirect(`/user/verified/?error=true&message=${message}`);
+                                })
+                                .catch(error => {
+                                    console.log(error);
+                                    let message = "Falha na limpeza do usuario com string exclusiva expirada";
+                                    res.redirect(`/user/verified/?error=true&message=${message}`);
+                                })
+                        })
+                        .catch((error) =>{
+                            console.log(error);
+                            let message = "Ocorreu um erro ao limpar o registro de verificação do usuario expirado."
+                            res.redirect(`/user/verified/?error=true&message=${message}`);
+                        })
+                }  else {
+                    bcrypt.compare(uniqueString, hashedUniqueString)
+                        .then(result => {
+                            if(result ) {
+                                Users.updateOne({id: _id}, {verified: true})
+                                    .then(() => {
+                                        UserVerification.deleteOne({_id})
+                                            .then(() =>{
+                                                res.sendFile(path.join(__dirname, "../views/verified.html"));
+                                            })
+                                            .catch(error => {
+                                                console.log(error)
+                                                let message = "Ocorreu um erro ao finalizar a verificação vem-sucedida";
+                                                res.redirect(`/user/verified/?error=true&message=${message}`);
+                                            }) 
+                                    })
+                                    .catch(error => {
+                                        console.log(error)
+                                        let message = "Ocorreu um erro ao modificar o registro do usuario para exibir verificado.";
+                                        res.redirect(`/user/verified/?error=true&message=${message}`);
+                                    })
+                            } else {
+                                let message = "Detalhes de verificação invalidos passados. Verifique a sua caixa de entrada";
+                                res.redirect(`/user/verified/?error=true&message=${message}`);
+                            }
+                        })
+                        .catch(error => {
+                            console.log(error);
+                            let message = "Um erro ocorreu ao comparar strings unicas.";
+                            res.redirect(`/user/verified/?error=true&message=${message}`);
+                        })
+                }
+            } else {
+                let message = "O registro da conta não existe ou já foi verificado. Por favor, registre-se ou faça login."
+                res.redirect(`/user/verified/?error=true&message=${message}`);
+            }
+        })
+        .catch((error) => {
+            console.log(error);
+            let message = "Um erro ocorreu enquanto era checado a existencia da verificação do usuario."
+            res.redirect(`/user/verified/?error=true&message=${message}`);
+        })
+    },
+    userVerified: async (req, res) => {
+        res.sendFile(path.join(__dirname, "../views/verified.html"));
+    },
     login: async (req, res) => {
         try {
             const {email, password} = req.body;
     
-            const user = await Users.findOne({email});
-            if(!user) return res.status(400).json({message: "Usuario não existe!"});
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if(!isMatch) return res.status(400).json({message: "Senha incorreta."});
-
-            const projectToken = createAccessToken({id: user._id});
-            const refreshToken = createRefreshToken({id: user._id});
-
-            res.cookie('refreshToken', refreshToken, {
-                httpOnly: true,
-                path: '/user/refresh_token',
-                maxAge: 7*24*60*1000
-            })
-            res.json({projectToken});
+       const user = await  Users.find({email})
+             .then((data) => {
+                     
+                if(data.length) {
+                    if(!data[0].verified) {
+                        return res.status(400).json({message: "O e-mail ainda não foi verificado. Verifique sua caixa de entrada."})
+                    } else {
+                        const isMatch =  bcrypt.compare(password, data[0].password);
+                        if(!isMatch) return res.status(400).json({message: "Senha incorreta."});
+        
+                        const projectToken = createAccessToken({id: data[0]._id});
+                        const refreshToken = createRefreshToken({id: data[0]._id});
+        
+                        res.cookie('refreshToken', refreshToken, {
+                            httpOnly: true,
+                            path: '/user/refresh_token',
+                            maxAge: 7*24*60*1000
+                        })
+                        res.json({projectToken});
+                    }
+                }
+                    
+             })
+             if(!user) return res.status(400).json({message: "Usuario não existe!"});
+     
         } catch (err) {
+            console.log(err);
             return res.status(500).json({message: err.message});
         }
     },
@@ -236,6 +381,7 @@ const useController ={
             res.json({projectToken});
         })
        } catch (err) {
+        console.log(err);
         return res.status(500).json({message: err.message});
        }
     },
@@ -246,6 +392,7 @@ const useController ={
 
             res.json(user)
         } catch (err) {
+            console.log(err);
             return res.status(500).json({message: err.message});
         }
     },

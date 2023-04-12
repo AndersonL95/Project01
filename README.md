@@ -49,6 +49,10 @@
 
 # GET user/refresh_token
 
+# GET user/verify/:_id/:uniqueString
+* Executada na verificação de usuario enviada via email
+# GET user/verified
+* Executado para erros relacionados a verificação de usuario, e html de verificação
 # -- .env file --
 
 * PORT = porta do servidor
